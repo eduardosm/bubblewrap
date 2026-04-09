@@ -1158,7 +1158,9 @@ privileged_op (int         privileged_op_socket,
       break;
 
     case PRIV_SEP_OP_OVERLAY_MOUNT:
-      if (mount ("overlay", arg2, "overlay", MS_MGC_VAL, arg1) != 0)
+      if (is_privileged)
+        die ("Overlay mounts are not supported in setuid mode");
+      if (mount ("overlay", arg2, "overlay", MS_MGC_VAL | MS_NOSUID | MS_NODEV, arg1) != 0)
         {
           /* The standard message for ELOOP, "Too many levels of symbolic
            * links", is not helpful here. */
@@ -1176,6 +1178,8 @@ privileged_op (int         privileged_op_socket,
          something manages to send hacked priv-sep operation requests. */
       if (!opt_unshare_uts)
         die ("Refusing to set hostname in original namespace");
+      if (arg1 == NULL)
+        die ("Hostname argument is NULL");
       if (sethostname (arg1, strlen(arg1)) != 0)
         die_with_error ("Can't set hostname to %s", arg1);
       break;
