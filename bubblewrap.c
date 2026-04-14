@@ -55,7 +55,11 @@ static uid_t real_uid;
 static gid_t real_gid;
 static uid_t overflow_uid;
 static gid_t overflow_gid;
+#ifdef ENABLE_SUPPORT_SETUID
 static bool is_privileged; /* See acquire_privs() */
+#else
+#define is_privileged 0
+#endif
 static const char *argv0;
 static const char *host_tty_dev;
 static int proc_fd = -1;
@@ -840,13 +844,16 @@ set_ambient_capabilities (void)
 static void
 acquire_privs (void)
 {
-  uid_t euid, new_fsuid;
+  uid_t euid;
 
   euid = geteuid ();
 
   /* Are we setuid ? */
   if (real_uid != euid)
     {
+#ifdef ENABLE_SUPPORT_SETUID
+      uid_t new_fsuid;
+
       if (euid != 0)
         die ("Unexpected setuid user %d, should be 0", euid);
 
@@ -868,13 +875,16 @@ acquire_privs (void)
       /* setfsuid can't properly report errors, check that it worked (as per manpage) */
       new_fsuid = setfsuid (-1);
       if (new_fsuid != real_uid)
-        die ("Unable to set fsuid (was %d)", (int)new_fsuid);
+        die_with_error ("Unable to set fsuid (was %d)", (int)new_fsuid);
 
       /* We never need capabilities after execve(), so lets drop everything from the bounding set */
       drop_cap_bounding_set (true);
 
       /* Keep only the required capabilities for setup */
       set_required_caps ();
+#else
+      die ("setuid use of bubblewrap is not supported in this build");
+#endif
     }
   else if (real_uid != 0 && has_caps ())
     {
